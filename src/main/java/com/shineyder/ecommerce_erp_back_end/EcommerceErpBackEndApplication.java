@@ -7,9 +7,7 @@ import org.springframework.data.mongodb.repository.config.EnableMongoRepositorie
 @SpringBootApplication
 @EnableMongoRepositories
 public class EcommerceErpBackEndApplication {
-
 	public static void main(String[] args) {
 		SpringApplication.run(EcommerceErpBackEndApplication.class, args);
 	}
-
 }

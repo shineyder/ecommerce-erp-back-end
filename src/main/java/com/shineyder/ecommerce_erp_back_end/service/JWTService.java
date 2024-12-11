@@ -1,30 +1,39 @@
 package com.shineyder.ecommerce_erp_back_end.service;
 
+import com.shineyder.ecommerce_erp_back_end.model.JwtBlacklist;
+import com.shineyder.ecommerce_erp_back_end.model.Users;
+import com.shineyder.ecommerce_erp_back_end.repository.JwtBlacklistRepository;
+import com.shineyder.ecommerce_erp_back_end.repository.UsersRepository;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SignatureException;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 
 @Service
+@SuppressWarnings("SpellCheckingInspection")
 public class JWTService {
-    private String secretKey = "";
+    private final String secretKey;
+    private final UsersRepository repository;
+    private final JwtBlacklistRepository jwtBlacklistRepository;
 
-    public JWTService() throws NoSuchAlgorithmException {
+    public JWTService(UsersRepository repository, JwtBlacklistRepository jwtBlacklistRepository) throws RuntimeException {
         try {
             KeyGenerator keyGenerator = KeyGenerator.getInstance("HmacSHA256");
             SecretKey sk = keyGenerator.generateKey();
-            secretKey = Base64.getEncoder().encodeToString(sk.getEncoded());
+            this.secretKey = Base64.getEncoder().encodeToString(sk.getEncoded());
+            this.repository = repository;
+            this.jwtBlacklistRepository = jwtBlacklistRepository;
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
@@ -38,14 +47,14 @@ public class JWTService {
                 .add(claims)
                 .subject(username)
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + 60*60*1000))
+                .expiration(new Date(System.currentTimeMillis() + /*60*60**/1000))
                 .and()
                 .signWith(getKey())
                 .compact();
     }
 
-    private SecretKey getKey(){
-        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+    private @NotNull SecretKey getKey(){
+        byte[] keyBytes = Decoders.BASE64.decode(this.secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
@@ -53,7 +62,7 @@ public class JWTService {
         return extractClaim(token, Claims::getSubject);
     }
 
-    private <T> T extractClaim(String token, Function<Claims, T> claimResolver) {
+    private <T> T extractClaim(String token, @NotNull Function<Claims, T> claimResolver) {
         final Claims claims = extractAllClaims(token);
         return claimResolver.apply(claims);
     }
@@ -66,7 +75,7 @@ public class JWTService {
             .getPayload();
     }
 
-    public boolean validateToken(String token, UserDetails userDetails) {
+    public boolean validateToken(String token, @NotNull UserDetails userDetails) {
         final String userName = extractUserName(token);
         return (userName.equals(userDetails.getUsername()) && !isTokenExpired(token));
     }
@@ -77,5 +86,35 @@ public class JWTService {
 
     private Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
+    }
+
+    public Map<String, String> refreshToken(String token) {
+        try {
+            JwtBlacklist blacklist = jwtBlacklistRepository.findByTokenEquals(token);
+            if(blacklist != null){
+                return Collections.singletonMap("error", "Token não é mais válido");
+            }
+
+            final String email = extractUserName(token);
+            Users user = repository.findByEmail(email);
+
+            if(user != null){
+                return Collections.singletonMap("error", "Token ainda válido");
+            }else{
+                return Collections.singletonMap("error", "Credenciais do token inválidas");
+            }
+        } catch (SignatureException e) {
+            return Collections.singletonMap("error", "Token inválido");
+        } catch (ExpiredJwtException expiredJwtException){
+            String email = expiredJwtException.getClaims().getSubject();
+            Users user = repository.findByEmail(email);
+            return Collections.singletonMap("token", generateToken(user.getEmail()));
+        }
+    }
+
+    public JwtBlacklist logout(String token){
+        JwtBlacklist jwtBlacklist = new JwtBlacklist(null, token);
+
+        return jwtBlacklistRepository.save(jwtBlacklist);
     }
 }

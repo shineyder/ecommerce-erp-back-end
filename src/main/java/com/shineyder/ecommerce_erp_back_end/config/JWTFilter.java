@@ -1,12 +1,14 @@
 package com.shineyder.ecommerce_erp_back_end.config;
 
+import com.shineyder.ecommerce_erp_back_end.model.JwtBlacklist;
+import com.shineyder.ecommerce_erp_back_end.repository.JwtBlacklistRepository;
 import com.shineyder.ecommerce_erp_back_end.service.JWTService;
 import com.shineyder.ecommerce_erp_back_end.service.ShineyderUserDetailsService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.context.ApplicationContext;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -20,15 +22,26 @@ import java.io.IOException;
 
 @Component
 public class JWTFilter extends OncePerRequestFilter {
+    private final JWTService jwtService;
+    private final ApplicationContext context;
+    private final JwtBlacklistRepository jwtBlacklistRepository;
 
-    @Autowired
-    JWTService jwtService;
-
-    @Autowired
-    ApplicationContext context;
+    public JWTFilter(
+            JWTService jwtService,
+            ApplicationContext context,
+            JwtBlacklistRepository jwtBlacklistRepository
+    ){
+        this.jwtService = jwtService;
+        this.context = context;
+        this.jwtBlacklistRepository = jwtBlacklistRepository;
+    }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(
+        @NotNull HttpServletRequest request,
+        @NonNull HttpServletResponse response,
+        @NonNull FilterChain filterChain
+    ) throws ServletException, IOException {
         String authHeader = request.getHeader("Authorization");
         String token = null;
         String username = null;
@@ -40,11 +53,17 @@ public class JWTFilter extends OncePerRequestFilter {
 
         if(username != null && SecurityContextHolder.getContext().getAuthentication() == null){
             UserDetails userDetails = context.getBean(ShineyderUserDetailsService.class)
-                .loadUserByUsername(username);
+                    .loadUserByUsername(username);
 
-            if(jwtService.validateToken(token, userDetails)){
+            JwtBlacklist blacklist = jwtBlacklistRepository.findByTokenEquals(token);
+
+            if(jwtService.validateToken(token, userDetails) && blacklist == null){
                 UsernamePasswordAuthenticationToken authToken =
-                    new UsernamePasswordAuthenticationToken(userDetails,null,userDetails.getAuthorities());
+                        new UsernamePasswordAuthenticationToken(
+                                userDetails,
+                                null,
+                                userDetails.getAuthorities()
+                        );
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }

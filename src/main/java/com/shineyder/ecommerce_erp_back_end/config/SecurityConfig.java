@@ -1,13 +1,13 @@
 package com.shineyder.ecommerce_erp_back_end.config;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -19,42 +19,50 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
+@SuppressWarnings("unused")
 public class SecurityConfig {
+    private final UserDetailsService userDetailsService;
+    private final JWTFilter jwtFilter;
+    private final JwtAuthenticationEntryPoint authenticationEntryPoint;
 
-    @Autowired
-    private UserDetailsService userDetailsService;
-
-    @Autowired
-    private JWTFilter jwtFilter;
+    public SecurityConfig(
+            UserDetailsService userDetailsService,
+            JWTFilter jwtFilter,
+            JwtAuthenticationEntryPoint authenticationEntryPoint
+    ){
+        this.userDetailsService = userDetailsService;
+        this.jwtFilter = jwtFilter;
+        this.authenticationEntryPoint = authenticationEntryPoint;
+    }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        return http
-            .csrf(AbstractHttpConfigurer::disable)
+    public SecurityFilterChain securityFilterChain(@NotNull HttpSecurity http) throws Exception {
+        return http.csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(
                 request -> request
-                    .requestMatchers("register","login").permitAll()
-                    .anyRequest().authenticated()
+                .requestMatchers("/users/register","/users/login", "users/refresh", "users/logout").permitAll()
+                .anyRequest().authenticated()
             )
             .httpBasic(Customizer.withDefaults())
+            .cors(Customizer.withDefaults())
             .sessionManagement(
                 session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
+            .exceptionHandling(
+                    (exception)->
+                            exception.authenticationEntryPoint(authenticationEntryPoint)
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
             .build();
     }
 
     @Bean
-    public AuthenticationProvider authenticationProvider(){
+    public AuthenticationManager authenticationManager() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
         provider.setPasswordEncoder(new BCryptPasswordEncoder(10));
         provider.setUserDetailsService(userDetailsService);
 
-        return provider;
-    }
-
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
+        return new ProviderManager(provider);
     }
 }

@@ -8,8 +8,7 @@ import java.util.Collection;
 import java.util.Collections;
 
 public class UserPrincipal implements UserDetails {
-
-    private Users user;
+    private final Users user;
 
     public UserPrincipal(Users user) {
         this.user = user;
@@ -27,7 +26,7 @@ public class UserPrincipal implements UserDetails {
 
     @Override
     public String getUsername() {
-        return user.getUsername();
+        return user.getEmail();
     }
 
     @Override
