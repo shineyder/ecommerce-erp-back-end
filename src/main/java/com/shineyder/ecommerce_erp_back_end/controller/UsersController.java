@@ -41,8 +41,14 @@ public class UsersController {
     }
 
     @PostMapping("/login")
-    public Map<String, String> login(@RequestBody Users users){
-        return service.verify(users);
+    public ResponseEntity<Map<String, String>> login(@RequestBody Users users){
+        Map<String, String> response = service.verify(users);
+
+        if(response.containsKey("token")){
+            return new ResponseEntity<>(response,HttpStatus.OK);
+        }else{
+            return new ResponseEntity<>(response,HttpStatus.BAD_REQUEST);
+        }
     }
 
     @PostMapping("/refresh")

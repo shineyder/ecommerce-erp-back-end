@@ -15,7 +15,7 @@ public class UserRegisterValidation {
     @UniqueEmailConstraint
     private String email;
 
-    @Size(min = 3, max = 16, message = "Senha deve ter entre 3 e 16 caracteres")
+    @Size(min = 4, max = 16, message = "Senha deve ter entre 4 e 16 caracteres")
     @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@#$%^&+=.]).{3,16}$", message = "Senha deve possuir pelo menos um caracter minusculo, um maiusculo, um número e um especial (@#$%^&+=.)")
     @NotBlank(message = "Senha é obrigatório")
     private String password;
@@ -23,4 +23,6 @@ public class UserRegisterValidation {
     @Size(min = 3, max = 255, message = "Nome deve ter entre 3 e 255 caracteres")
     @NotBlank(message = "Nome é obrigatório")
     private String name;
+
+    private Boolean isEmployee;
 }

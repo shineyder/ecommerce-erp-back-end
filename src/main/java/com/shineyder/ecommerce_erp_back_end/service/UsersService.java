@@ -8,6 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +16,7 @@ import java.util.Collections;
 import java.util.Map;
 
 @Service
+@SuppressWarnings("SpellCheckingInspection")
 public class UsersService {
     private final UsersRepository repository;
     private final JWTService jwtService;
@@ -29,26 +31,35 @@ public class UsersService {
     }
 
     public Users register(@NotNull UserRegisterValidation usersRegisterForm){
+        Boolean isEmployee = usersRegisterForm.getIsEmployee();
+        if(isEmployee == null) {
+            isEmployee = false;
+        }
         Users user = new Users(
                 null,
                 usersRegisterForm.getName(),
                 usersRegisterForm.getEmail(),
-                usersRegisterForm.getPassword()
+                usersRegisterForm.getPassword(),
+                isEmployee
         );
         user.setPassword(encoder.encode(user.getPassword()));
         return repository.save(user);
     }
 
     public Map<String, String> verify(@NotNull Users users) {
-        Authentication authentication = authManager.authenticate(
-            new UsernamePasswordAuthenticationToken(users.getEmail(),users.getPassword())
-        );
+        try {
+            Authentication authentication = authManager.authenticate(
+                new UsernamePasswordAuthenticationToken(users.getEmail(),users.getPassword())
+            );
 
-        if(authentication.isAuthenticated()) {
-            return Collections.singletonMap("token", jwtService.generateToken(users.getEmail()));
+            if(authentication.isAuthenticated()) {
+                return Collections.singletonMap("token", jwtService.generateToken(users.getEmail()));
+            }
+
+            return Collections.singletonMap("errors", "Ocorreu um erro inesperado!");
+        } catch (AuthenticationException authException) {
+            return Collections.singletonMap("errors", authException.getMessage());
         }
-
-        return Collections.singletonMap("error", "error");
     }
 
     public Map<String, String> refresh(String token){

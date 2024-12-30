@@ -11,8 +11,13 @@ public class UserResponseDTO {
     private final String id;
     private String name;
     private String email;
+    private Boolean isEmployee;
 
     public static UserResponseDTO transform(Users user) {
-        return new UserResponseDTO(user.getId(), user.getName(), user.getEmail());
+        Boolean isEmployee = user.getIsEmployee();
+        if(isEmployee == null) {
+            isEmployee = false;
+        }
+        return new UserResponseDTO(user.getId(), user.getName(), user.getEmail(), isEmployee);
     }
 }

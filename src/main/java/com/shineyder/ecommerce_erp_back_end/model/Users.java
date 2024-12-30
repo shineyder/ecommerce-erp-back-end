@@ -26,11 +26,16 @@ public class Users {
     @Setter
     private String password;
 
-    public Users(String id, String name, String email, String password) {
+    @Field("isEmployee")
+    @Setter
+    private Boolean isEmployee;
+
+    public Users(String id, String name, String email, String password, Boolean isEmployee) {
         this.id = id;
         this.name = name;
         this.email = email;
         this.password = password;
+        this.isEmployee = isEmployee;
     }
 
     @Override
